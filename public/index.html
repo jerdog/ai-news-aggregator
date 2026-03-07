@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI News Aggregator</title>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #18181c;
+      --border: #2a2a30;
+      --text: #e4e4e7;
+      --muted: #a1a1aa;
+      --accent: #a78bfa;
+      --accent-hover: #c4b5fd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 1rem 0;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+    select {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    select:hover, select:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+    .status {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    th:hover {
+      color: var(--accent);
+    }
+    th .sort-icon {
+      margin-left: 0.25rem;
+      opacity: 0.6;
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .title a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .title a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .source, .topic {
+      color: var(--muted);
+    }
+    .date {
+      color: var(--muted);
+      font-size: 0.8125rem;
+      white-space: nowrap;
+    }
+    .loading, .error {
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+    .error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>AI News Aggregator</h1>
+  <div class="controls">
+    <label>
+      Topic
+      <select id="topic">
+        <option value="">All</option>
+        <option value="ai_native_development">AI Native development</option>
+        <option value="agentic_ai_platforms">Agentic AI platforms</option>
+      </select>
+    </label>
+    <label>
+      Date range
+      <select id="since">
+        <option value="">All time</option>
+        <option value="7">Last week</option>
+        <option value="14">Last 2 weeks</option>
+        <option value="30">Last month</option>
+      </select>
+    </label>
+    <span class="status" id="status">Loading…</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="title">Title <span class="sort-icon" aria-hidden="true"></span></th>
+          <th data-sort="source">Source <span class="sort-icon" aria-hidden="true"></span></th>
+          <th data-sort="topic">Topic <span class="sort-icon" aria-hidden="true"></span></th>
+          <th data-sort="published_at">Published <span class="sort-icon" aria-hidden="true"></span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const tbody = document.getElementById('tbody');
+    const statusEl = document.getElementById('status');
+    const topicSelect = document.getElementById('topic');
+    const sinceSelect = document.getElementById('since');
+
+    let stories = [];
+    let sortKey = 'published_at';
+    let sortDir = 'desc';
+
+    function getSinceIso() {
+      const days = sinceSelect.value;
+      if (!days) return '';
+      const d = new Date();
+      d.setDate(d.getDate() - Number(days));
+      return d.toISOString().slice(0, 10);
+    }
+
+    function apiUrl() {
+      const u = new URL('/api/stories', location.origin);
+      const topic = topicSelect.value;
+      const since = getSinceIso();
+      if (topic) u.searchParams.set('topic', topic);
+      if (since) u.searchParams.set('since', since);
+      u.searchParams.set('limit', '500');
+      return u.toString();
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+    }
+
+    function topicLabel(topic) {
+      return topic === 'ai_native_development' ? 'AI Native development' : topic === 'agentic_ai_platforms' ? 'Agentic AI platforms' : topic;
+    }
+
+    function render() {
+      const sorted = [...stories].sort((a, b) => {
+        let va = a[sortKey];
+        let vb = b[sortKey];
+        if (sortKey === 'published_at') {
+          va = va ? new Date(va).getTime() : 0;
+          vb = vb ? new Date(vb).getTime() : 0;
+        } else {
+          va = (va ?? '').toString().toLowerCase();
+          vb = (vb ?? '').toString().toLowerCase();
+        }
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      tbody.innerHTML = sorted.map(s => `
+        <tr>
+          <td class="title"><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a></td>
+          <td class="source">${escapeHtml(s.source)}</td>
+          <td class="topic ${escapeHtml(s.topic)}">${escapeHtml(topicLabel(s.topic))}</td>
+          <td class="date">${formatDate(s.published_at)}</td>
+        </tr>
+      `).join('');
+      statusEl.textContent = `${sorted.length} story${sorted.length !== 1 ? 'ies' : ''}`;
+    }
+
+    function escapeHtml(str) {
+      if (str == null) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function setSort(key) {
+      if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      else { sortKey = key; sortDir = 'asc'; }
+      document.querySelectorAll('th').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        icon.textContent = th.dataset.sort === sortKey ? (sortDir === 'asc' ? '↑' : '↓') : '';
+      });
+      render();
+    }
+
+    async function load() {
+      statusEl.textContent = 'Loading…';
+      tbody.innerHTML = '';
+      try {
+        const res = await fetch(apiUrl());
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        stories = data.stories ?? [];
+        render();
+      } catch (e) {
+        statusEl.textContent = '';
+        tbody.innerHTML = `<tr><td colspan="4" class="error">Failed to load: ${escapeHtml(e.message)}</td></tr>`;
+      }
+    }
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => setSort(th.dataset.sort));
+    });
+    topicSelect.addEventListener('change', load);
+    sinceSelect.addEventListener('change', load);
+
+    load();
+  </script>
+</body>
+</html>

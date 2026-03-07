@@ -1,0 +1,21 @@
+{
+  "name": "ai-news-aggregator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create ai-news-db",
+    "db:migrate": "wrangler d1 migrations apply ai-news-db",
+    "db:migrate:remote": "wrangler d1 migrations apply ai-news-db --remote",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "latest"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.6.0",
+    "node-gyp": "^12.2.0"
+  }
+}

@@ -1,0 +1,12 @@
+# Copy to .dev.vars and fill in. Used only for local dev (wrangler dev).
+# Production: use `npx wrangler secret put <NAME>` — never commit .dev.vars.
+
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+
+# Perigon (api.perigon.io/v1) — used by ingestion
+# PERIGON_API_KEY=your_perigon_key_here
+# (NEWSAPI_KEY also works as fallback if you already use that name)
+
+# Optional: secret for manual ingestion trigger (GET /ingest?key=...). Use a random string.
+# INGEST_SECRET=your_random_secret_here

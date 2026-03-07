@@ -1,0 +1,21 @@
+# AI News Aggregator — Cloudflare Worker + D1
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "ai-news-aggregator"
+main = "src/index.js"
+compatibility_date = "2026-03-01"
+
+# D1: run `npm run db:create` once, then paste database_id here
+[[d1_databases]]
+binding = "DB"
+database_name = "ai-news-db"
+database_id = "9bab402a-84c2-4b88-b106-a3fd17764f54"
+
+# Static assets (public/index.html)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Daily at 1:00 AM Central Time (07:00 UTC = CST; 2am during CDT)
+[triggers]
+crons = ["0 7 * * *"]
