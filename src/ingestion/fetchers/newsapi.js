@@ -29,9 +29,10 @@ export async function fetchFromNewsApi(env, topic) {
   const fromStr = from.toISOString().slice(0, 10);
 
   const PAGE_SIZE = 100;
+  const MAX_PAGES = 100; // safety cap: up to 10k articles per topic
   const allArticles = [];
 
-  for (let page = 1; ; page++) {
+  for (let page = 1; page <= MAX_PAGES; page++) {
     const url = new URL('https://api.perigon.io/v1/articles/all');
     url.searchParams.set('q', query);
     url.searchParams.set('apiKey', apiKey);

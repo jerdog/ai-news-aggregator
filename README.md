@@ -6,7 +6,7 @@ Weekly aggregation of top news about **AI Native development** and **Agentic AI 
 
 - **Cloudflare Worker** — HTTP API + scheduled ingestion
 - **D1** — SQLite at the edge for stories
-- **Cron Trigger** — weekly run (Mondays 00:00 UTC)
+- **Cron Trigger** — daily run (1:00 AM Central Time = 07:00 UTC)
 
 ## Setup
 
@@ -75,7 +75,7 @@ npm run dev
 - **API:** <http://localhost:8787/api/stories>
   Query params: `topic` (`ai_native_development` | `agentic_ai_platforms`), `since`, `limit`, `offset`
 - **Trigger cron manually:**
-  `curl "http://localhost:8787/__scheduled?cron=0+0+*+*+1"`
+  `curl "http://localhost:8787/__scheduled?cron=0+7+*+*+*"`
 
 ## Checking that ingestion works
 
@@ -85,10 +85,10 @@ npm run dev
    npm run dev
    ```
 
-2. **Run the ingestion job** (in another terminal). This triggers the same code the weekly cron runs:
+2. **Run the ingestion job** (in another terminal).    This triggers the same code the daily cron runs:
 
    ```bash
-   curl "http://localhost:8787/__scheduled?cron=0+0+*+*+1"
+   curl "http://localhost:8787/__scheduled?cron=0+7+*+*+*"
    ```
 
    You should see a response (e.g. no body or 204). In the `npm run dev` terminal you should see logs like `[ingestion] started` and `[ingestion] done { added: N, skipped: 0 }`.
@@ -145,7 +145,7 @@ npm run db:migrate:remote
    curl "https://YOUR-WORKER-URL/api/stories?topic=agentic_ai_platforms"
    ```
 
-3. **Run ingestion on demand (don’t wait for Monday)**
+3. **Run ingestion on demand (don’t wait for the daily cron)**
    If you set a secret `INGEST_SECRET`, you can trigger ingestion once from the deployed worker:
 
    ```bash
@@ -159,7 +159,7 @@ npm run db:migrate:remote
    Response: `{ "ok": true, "added": 42, "skipped": 0 }`. Then reload `https://YOUR-WORKER-URL/api/stories` — you should see the new stories.
 
 4. **When does ingestion run automatically?**
-   The **cron runs every Monday at 00:00 UTC**. Until then (or until you call `/ingest`), `/api/stories` can be empty.
+   The **cron runs daily at 1:00 AM Central Time (07:00 UTC)**. Until then (or until you call `/ingest`), `/api/stories` can be empty.
 
 5. **Watch production logs when the cron runs** (optional):
 
@@ -167,7 +167,7 @@ npm run db:migrate:remote
    npx wrangler tail
    ```
 
-   Leave this running; when the Monday cron fires you’ll see `[ingestion] started` and `[ingestion] done` in the stream.
+   Leave this running; when the daily cron fires you’ll see `[ingestion] started` and `[ingestion] done` in the stream.
 
 **Checklist for a new deploy:** Set `PERIGON_API_KEY` and optionally `INGEST_SECRET` in production, run `npm run db:migrate:remote`, then `npm run deploy`. Trigger once with `curl "https://YOUR-WORKER-URL/ingest?key=YOUR_INGEST_SECRET"`, then open `https://YOUR-WORKER-URL/api/stories`.
 
