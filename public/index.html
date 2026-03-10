@@ -55,6 +55,23 @@
       border-color: var(--accent);
       outline: none;
     }
+    input[type="search"],
+    input[type="text"].search {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      min-width: 12rem;
+    }
+    input[type="search"]:hover,
+    input[type="search"]:focus,
+    input[type="text"].search:hover,
+    input[type="text"].search:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
     .status {
       font-size: 0.875rem;
       color: var(--muted);
@@ -149,6 +166,10 @@
         <option value="30">Last month</option>
       </select>
     </label>
+    <label>
+      Search
+      <input type="search" id="search" class="search" placeholder="Title, source…" autocomplete="off" />
+    </label>
     <span class="status" id="status">Loading…</span>
   </div>
   <div class="table-wrap">
@@ -170,6 +191,7 @@
     const statusEl = document.getElementById('status');
     const topicSelect = document.getElementById('topic');
     const sinceSelect = document.getElementById('since');
+    const searchInput = document.getElementById('search');
 
     let stories = [];
     let sortKey = 'published_at';
@@ -203,6 +225,17 @@
       return topic === 'ai_native_development' ? 'AI Native development' : topic === 'agentic_ai_platforms' ? 'Agentic AI platforms' : topic;
     }
 
+    /** Filter stories by search query (title, source, topic). Multiple words = AND. */
+    function filterStories(list, query) {
+      const q = (query || '').trim().toLowerCase();
+      if (!q) return list;
+      const words = q.split(/\s+/).filter(Boolean);
+      return list.filter((s) => {
+        const text = [s.title, s.source, topicLabel(s.topic)].join(' ').toLowerCase();
+        return words.every((w) => text.includes(w));
+      });
+    }
+
     /** Merge stories with same title and same calendar day into one row per article. */
     function mergeStories(list) {
       const day = (iso) => (iso || '').slice(0, 10);
@@ -228,7 +261,8 @@
     }
 
     function render() {
-      const merged = mergeStories(stories);
+      const filtered = filterStories(stories, searchInput.value);
+      const merged = mergeStories(filtered);
       const sorted = [...merged].sort((a, b) => {
         let va = a[sortKey];
         let vb = b[sortKey];
@@ -257,7 +291,10 @@
           <td class="date">${formatDate(s.published_at)}</td>
         </tr>
       `}).join('');
-      statusEl.textContent = `${sorted.length} article${sorted.length !== 1 ? 's' : ''} (${stories.length} source${stories.length !== 1 ? 's' : ''})`;
+      const q = searchInput.value.trim();
+      let status = `${sorted.length} article${sorted.length !== 1 ? 's' : ''} (${filtered.length} source${filtered.length !== 1 ? 's' : ''})`;
+      if (q) status += ` matching “${escapeHtml(q)}”`;
+      statusEl.textContent = status;
     }
 
     function escapeHtml(str) {
@@ -297,6 +334,12 @@
     });
     topicSelect.addEventListener('change', load);
     sinceSelect.addEventListener('change', load);
+    let searchDebounce;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(render, 150);
+    });
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); render(); } });
 
     load();
   </script>
