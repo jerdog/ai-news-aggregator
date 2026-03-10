@@ -29,10 +29,10 @@ export async function fetchFromNewsApi(env, topic) {
   const fromStr = from.toISOString().slice(0, 10);
 
   const PAGE_SIZE = 100;
-  const MAX_PAGES = 100; // safety cap: up to 10k articles per topic
+  const MAX_TOTAL = 300; // Perigon API limit: "maximum allowed limit is 300" documents per query
   const allArticles = [];
 
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  for (let page = 1; allArticles.length < MAX_TOTAL; page++) {
     const url = new URL('https://api.perigon.io/v1/articles/all');
     url.searchParams.set('q', query);
     url.searchParams.set('apiKey', apiKey);
@@ -50,8 +50,8 @@ export async function fetchFromNewsApi(env, topic) {
     const articles = data.articles ?? data.results ?? [];
     if (!Array.isArray(articles)) break;
 
-    allArticles.push(...articles);
-    if (articles.length < PAGE_SIZE) break;
+    allArticles.push(...articles.slice(0, MAX_TOTAL - allArticles.length));
+    if (articles.length < PAGE_SIZE || allArticles.length >= MAX_TOTAL) break;
   }
 
   const articles = allArticles;

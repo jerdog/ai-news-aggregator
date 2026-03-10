@@ -7,6 +7,7 @@ Weekly aggregation of top news about **AI Native development** and **Agentic AI 
 - **Cloudflare Worker** — HTTP API + scheduled ingestion
 - **D1** — SQLite at the edge for stories
 - **Cron Trigger** — daily run (1:00 AM Central Time = 07:00 UTC)
+- **Workers AI** — Gemma 3 12B for AI-generated summaries (day / week / month)
 
 ## Setup
 
@@ -44,6 +45,8 @@ Weekly aggregation of top news about **AI Native development** and **Agentic AI 
    ```bash
    npm run db:migrate:remote
    ```
+
+   After adding the `summaries` table (migration 0002), run migrations again so the new table exists.
 
 4. **Optional: API keys (local dev)**
 
@@ -158,6 +161,14 @@ npm run db:migrate:remote
 
    Response: `{ "ok": true, "added": 42, "skipped": 0 }`. Then reload `https://YOUR-WORKER-URL/api/stories` — you should see the new stories.
 
+   To generate AI summaries for the previous day (and, if applicable, last week/month), call the same secret on the summaries endpoint:
+
+   ```bash
+   curl "https://YOUR-WORKER-URL/ingest-summaries?key=YOUR_SECRET"
+   ```
+
+   Response: `{ "ok": true, "generated": 1, "summaries": [...] }`. Then open `https://YOUR-WORKER-URL/summaries.html` to see the digest.
+
 4. **When does ingestion run automatically?**
    The **cron runs daily at 1:00 AM Central Time (07:00 UTC)**. Until then (or until you call `/ingest`), `/api/stories` can be empty.
 
@@ -171,12 +182,28 @@ npm run db:migrate:remote
 
 **Checklist for a new deploy:** Set `PERIGON_API_KEY` and optionally `INGEST_SECRET` in production, run `npm run db:migrate:remote`, then `npm run deploy`. Trigger once with `curl "https://YOUR-WORKER-URL/ingest?key=YOUR_INGEST_SECRET"`, then open `https://YOUR-WORKER-URL/api/stories`.
 
+## AI Summaries
+
+The **Summaries** page (`/summaries.html`) shows AI-generated digests (Cloudflare Workers AI, `@cf/google/gemma-3-12b-it`) for:
+
+- **Day** — yesterday’s articles (generated daily)
+- **Week** — last full week Sunday–Saturday (generated each Sunday)
+- **Month** — last full calendar month (generated on the 1st)
+
+Summaries are stored in the `summaries` D1 table. As cron runs over time, more day/week/month entries appear on the page. The daily cron runs ingestion first, then ensures summaries exist for yesterday (and, when applicable, last week or last month). You can trigger summary generation on demand (e.g. after running `/ingest`) with `GET /ingest-summaries?key=YOUR_INGEST_SECRET`.
+
+**Perigon limit:** The Perigon API allows at most 300 documents per query. Ingestion is capped at 300 articles per topic (last 7 days) to avoid 400 errors.
+
 ## Project layout
 
 - `src/index.js` — fetch + scheduled handlers
 - `src/api/stories.js` — GET /api/stories
-- `src/ingestion/index.js` — orchestrate fetchers (Phase 1: add first source here)
-- `src/storage/stories.js` — D1 queries
-- `migrations/` — D1 schema
+- `src/api/summaries.js` — GET /api/summaries
+- `src/ingestion/` — Perigon fetcher + orchestration
+- `src/summaries/` — period helpers + AI generation (Gemma 3 12B)
+- `src/storage/stories.js` — D1 stories
+- `src/storage/summaries.js` — D1 summaries
+- `migrations/` — D1 schema (0001 stories, 0002 summaries)
+- `public/index.html` — article list; `public/summaries.html` — summaries page
 
 See **[DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)** for the full roadmap (phases, sources, and UI).

@@ -53,6 +53,10 @@ export async function listStories(db, opts = {}) {
     query += ' AND published_at >= ?';
     params.push(opts.since);
   }
+  if (opts.until) {
+    query += ' AND published_at <= ?';
+    params.push(opts.until);
+  }
 
   query += ' ORDER BY COALESCE(score, 0) DESC, published_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
