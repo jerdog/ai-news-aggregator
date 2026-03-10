@@ -79,6 +79,7 @@
       white-space: nowrap;
       cursor: pointer;
       user-select: none;
+      font-size: medium;
     }
     th:hover {
       color: var(--accent);
@@ -106,6 +107,15 @@
     .source, .topic {
       color: var(--muted);
     }
+    .source a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .source a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .source .source-line { display: block; }
     .date {
       color: var(--muted);
       font-size: 0.8125rem;
@@ -193,13 +203,41 @@
       return topic === 'ai_native_development' ? 'AI Native development' : topic === 'agentic_ai_platforms' ? 'Agentic AI platforms' : topic;
     }
 
+    /** Merge stories with same title and same calendar day into one row per article. */
+    function mergeStories(list) {
+      const day = (iso) => (iso || '').slice(0, 10);
+      const normTitle = (t) => (t || '').toString().trim().toLowerCase();
+      const groups = new Map();
+      for (const s of list) {
+        const key = `${normTitle(s.title)}|${day(s.published_at)}`;
+        if (!groups.has(key)) groups.set(key, { title: s.title, published_at: s.published_at, topic: s.topic, items: [] });
+        groups.get(key).items.push({ url: s.url, source: s.source });
+      }
+      return [...groups.values()].map((g) => {
+        const items = g.items;
+        const first = items[0];
+        const sources = [...new Map(items.map((i) => [i.source, i.url])).entries()];
+        return {
+          title: g.title,
+          url: first.url,
+          published_at: g.published_at,
+          topic: g.topic,
+          sources,
+        };
+      });
+    }
+
     function render() {
-      const sorted = [...stories].sort((a, b) => {
+      const merged = mergeStories(stories);
+      const sorted = [...merged].sort((a, b) => {
         let va = a[sortKey];
         let vb = b[sortKey];
         if (sortKey === 'published_at') {
           va = va ? new Date(va).getTime() : 0;
           vb = vb ? new Date(vb).getTime() : 0;
+        } else if (sortKey === 'source') {
+          va = a.sources.map(([s]) => s).join(' ').toLowerCase();
+          vb = b.sources.map(([s]) => s).join(' ').toLowerCase();
         } else {
           va = (va ?? '').toString().toLowerCase();
           vb = (vb ?? '').toString().toLowerCase();
@@ -209,15 +247,17 @@
         return 0;
       });
 
-      tbody.innerHTML = sorted.map(s => `
+      tbody.innerHTML = sorted.map((s) => {
+        const sourceLinks = s.sources.map(([name, url]) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="source-line">${escapeHtml(name)}</a>`).join('');
+        return `
         <tr>
           <td class="title"><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a></td>
-          <td class="source">${escapeHtml(s.source)}</td>
-          <td class="topic ${escapeHtml(s.topic)}">${escapeHtml(topicLabel(s.topic))}</td>
+          <td class="source">${sourceLinks}</td>
+          <td class="topic">${escapeHtml(topicLabel(s.topic))}</td>
           <td class="date">${formatDate(s.published_at)}</td>
         </tr>
-      `).join('');
-      statusEl.textContent = `${sorted.length} story${sorted.length !== 1 ? 'ies' : ''}`;
+      `}).join('');
+      statusEl.textContent = `${sorted.length} article${sorted.length !== 1 ? 's' : ''} (${stories.length} source${stories.length !== 1 ? 's' : ''})`;
     }
 
     function escapeHtml(str) {
